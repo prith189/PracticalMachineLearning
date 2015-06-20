@@ -1,0 +1,118 @@
+---
+title: "Practical Machine Learning Project"
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
+  word_document: default
+---
+
+### Prithvi N.
+### June 2015
+
+------------------------------------------
+
+
+## Synopsis
+In this project, we will develop a simple machine learning algorithm to predict whether an exercise (eg. lifting a dumbbell) was performed correctly or not based on sensor data available. 
+
+
+## Analysis
+```{r echo=FALSE,message = FALSE}
+require(caret)
+require(e1071)
+```
+
+We Will load the Dataset. And, also split the dataset into training and test sets to perform cross validation. We will use 70% of the samples in our training set and 30% of the samples in the test set
+```{r CACHE=T}
+
+TotalData <- read.csv("pml-training.csv")
+
+inTrain <- createDataPartition(y=TotalData$classe,p=0.7,list=FALSE)
+
+training <- TotalData[inTrain,]
+testing<-TotalData[-inTrain,]
+
+
+
+
+```
+
+
+
+A large number of columns in this dataset seem to be cumulative statistics (like mean, std dev, max etc.). Since these statistics do not apply to each of the entries, they could be removed for the purposes of this analysis. So we will remove all those columns with names "max", "min","stddev","skewness","kurtosis","variance","average","amplitude"
+
+```{r CACHE=T}
+
+
+to_be_removed<-grep("amplitude",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("stddev",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("avg",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("kurtosis",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("max",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("min",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("skewness",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+to_be_removed<-grep("var",colnames(training))
+training<-training[-to_be_removed]
+testing<-testing[-to_be_removed]
+training<-training[-c(1:7)]
+testing<-testing[-c(1:7)]
+
+```
+
+We now have a much thinner dataset and now we will need to figure out which of these features could be used to make predictions. We will perform some preliminary data analysis to find out if there is any correlation between the features and the outcome "classe"
+
+```{r CACHE=T}
+
+pairs(classe~pitch_forearm+yaw_forearm+roll_forearm+total_accel_forearm,data=training,main="Forearm EDA")
+
+pairs(classe~pitch_belt+yaw_belt+roll_belt+total_accel_belt,data=training,main="Belt EDA")
+
+pairs(classe~pitch_dumbbell+yaw_dumbbell+roll_dumbbell+total_accel_dumbbell,data=training,main="Dumbbell EDA")
+
+pairs(classe~magnet_arm_x+magnet_arm_y+magnet_arm_z,data=training,main="Magnet Arm EDA")
+```
+
+By looking at the plots above we can see that there is some relation between "classe" and the following features
+
+1.Yaw Forearm
+2.Pitch Forearm
+3.Roll_Forearm
+4.Yaw_dumbbell
+5.Pitch_dumbbell
+6.Roll_dumbbell
+7.Total_accel_belt
+8.Yaw_belt
+9.Roll_belt
+10. Magnet_Arm_X
+
+We will now fit the data using a Decision Tree Model using the Train function. We will then use this model to predict the testing data set and calculate the estimated out of sample error.
+```{r CACHE=T}
+
+
+modfit <- train(classe~yaw_forearm+pitch_forearm+roll_forearm+yaw_dumbbell+pitch_dumbbell+roll_dumbbell+total_accel_belt+yaw_belt+magnet_arm_x+roll_belt,method ="rpart",data=training)
+
+plot(modfit$finalModel, uniform=T, main="Classfication Tree")
+
+text(modfit$finalModel,use.n=T,all=T,cex=0.8)
+pred<-predict(modfit,newdata=testing)
+
+confusionMatrix(pred,testing$classe)
+
+```
+
+The Accuracy is around 0.55 meaning the estimated Out of Sample Error rate is around 0.45 and it shows that there is scope for a lot of improvement of this model.
